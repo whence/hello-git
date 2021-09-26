@@ -2,13 +2,28 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	git "github.com/libgit2/git2go/v32"
 )
 
 func main() {
-	// test with a real refName
+	if len(os.Args) < 2 {
+		fmt.Println("[prog] [test_case] args...")
+		return
+	}
+
+	switch testCase := os.Args[1]; testCase {
+	case "OidWithOdbCaching":
+		testOidWithOdbCaching(os.Args[2], os.Args[3])
+	case "OidWithoutOdbCaching":
+		testOidWithoutOdbCaching(os.Args[2], os.Args[3])
+	case "Ref":
+		testRef(os.Args[2], os.Args[3])
+	default:
+		fmt.Println("Unknown test case")
+	}
 }
 
 func testOidWithOdbCaching(oidString, dir string) {

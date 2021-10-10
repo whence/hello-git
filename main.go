@@ -1,11 +1,18 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"path/filepath"
 
 	git "github.com/libgit2/git2go/v32"
+)
+
+var (
+	ErrReferenceNotFound = errors.New("reference not found")
+	ErrReferenceInvalid  = errors.New("reference is not valid")
 )
 
 func main() {
@@ -37,6 +44,30 @@ func main() {
 		fmt.Println("Need either oid or ref")
 		return
 	}
+}
+
+func lookupReference(repo *git.Repository, refName string, resolve bool) (*git.Reference, error) {
+	if !git.ReferenceIsValidName(refName) {
+		log.Printf("Searching ref and got invalid ref %s\n", refName)
+		return nil, ErrReferenceInvalid
+	}
+
+	ref, err := repo.References.Lookup(refName)
+	if err != nil {
+		log.Printf("Searching ref and not found %s %v\n", refName, err)
+		return nil, ErrReferenceNotFound
+	}
+
+	if resolve {
+		ref, err = ref.Resolve()
+		if err != nil {
+			log.Printf("Searching ref and not resolved %s %v\n", refName, err)
+			return nil, ErrReferenceNotFound
+		}
+	}
+
+	log.Printf("Searching ref and found %s\n", refName)
+	return ref, nil
 }
 
 func cmdOid(oid, dir string) {
@@ -107,19 +138,14 @@ func ref2Oid(refName, dir string) (*git.Oid, error) {
 		return nil, fmt.Errorf("failed to open dir. Error: %v", err)
 	}
 
-	if !git.ReferenceIsValidName(refName) {
-		return nil, fmt.Errorf("ref %s is not valid", refName)
+	ref, err := lookupReference(repo, refName, true)
+	if err == ErrReferenceNotFound {
+		return nil, fmt.Errorf("Ref %s not found. Error: %v", refName, err)
 	}
 
-	ref, err := repo.References.Lookup(refName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup ref. Error: %v", err)
+		return nil, err
 	}
 
-	resolvedRef, err := ref.Resolve()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve ref. Error: %v", err)
-	}
-
-	return resolvedRef.Target(), nil
+	return ref.Target(), nil
 }
